@@ -1,5 +1,6 @@
 package com.application.stockfela.controller;
 
+import com.application.stockfela.dto.request.LoginRequest;
 import com.application.stockfela.entity.User;
 import com.application.stockfela.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -107,15 +108,15 @@ public class AuthController {
     }
 
     // Inner class for login request
-    public static class LoginRequest {
-        private String username;
-        private String password;
-
-        // Getters and Setters
-        public String getUsername() { return username; }
-        public void setUsername(String username) { this.username = username; }
-
-        public String getPassword() { return password; }
-        public void setPassword(String password) { this.password = password; }
-    }
+//    public static class LoginRequest {
+//        private String username;
+//        private String password;
+//
+//        // Getters and Setters
+//        public String getUsername() { return username; }
+//        public void setUsername(String username) { this.username = username; }
+//
+//        public String getPassword() { return password; }
+//        public void setPassword(String password) { this.password = password; }
+//    }
 }

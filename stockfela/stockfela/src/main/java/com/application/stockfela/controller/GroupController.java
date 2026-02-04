@@ -1,5 +1,7 @@
 package com.application.stockfela.controller;
 
+import com.application.stockfela.dto.request.AddMemberRequest;
+import com.application.stockfela.dto.request.CreateGroupRequest;
 import com.application.stockfela.entity.SavingsGroup;
 import com.application.stockfela.entity.User;
 import com.application.stockfela.service.SavingGroupService;
@@ -194,39 +196,40 @@ public class GroupController {
 
     // REQUEST DATA TRANSFER OBJECTS (DTOs)
 
-    public static class CreateGroupRequest {
-        private String name;
-        private String description;
-        private BigDecimal monthlyContribution;
-        private Integer cycleMonths;
-        private Long createdBy;
+//    public static class
+//    CreateGroupRequest {
+//        private String name;
+//        private String description;
+//        private BigDecimal monthlyContribution;
+//        private Integer cycleMonths;
+//        private Long createdBy;
+//
+//        // Getters and Setters
+//        public String getName() { return name; }
+//        public void setName(String name) { this.name = name; }
+//
+//        public String getDescription() { return description; }
+//        public void setDescription(String description) { this.description = description; }
+//
+//        public BigDecimal getMonthlyContribution() { return monthlyContribution; }
+//        public void setMonthlyContribution(BigDecimal monthlyContribution) { this.monthlyContribution = monthlyContribution; }
+//
+//        public Integer getCycleMonths() { return cycleMonths; }
+//        public void setCycleMonths(Integer cycleMonths) { this.cycleMonths = cycleMonths; }
+//
+//        public Long getCreatedBy() { return createdBy; }
+//        public void setCreatedBy(Long createdBy) { this.createdBy = createdBy; }
+//    }
 
-        // Getters and Setters
-        public String getName() { return name; }
-        public void setName(String name) { this.name = name; }
-
-        public String getDescription() { return description; }
-        public void setDescription(String description) { this.description = description; }
-
-        public BigDecimal getMonthlyContribution() { return monthlyContribution; }
-        public void setMonthlyContribution(BigDecimal monthlyContribution) { this.monthlyContribution = monthlyContribution; }
-
-        public Integer getCycleMonths() { return cycleMonths; }
-        public void setCycleMonths(Integer cycleMonths) { this.cycleMonths = cycleMonths; }
-
-        public Long getCreatedBy() { return createdBy; }
-        public void setCreatedBy(Long createdBy) { this.createdBy = createdBy; }
-    }
-
-    public static class AddMemberRequest {
-        private Long userId;
-        private Integer payoutOrder;
-
-        // Getters and Setters
-        public Long getUserId() { return userId; }
-        public void setUserId(Long userId) { this.userId = userId; }
-
-        public Integer getPayoutOrder() { return payoutOrder; }
-        public void setPayoutOrder(Integer payoutOrder) { this.payoutOrder = payoutOrder; }
-    }
+//    public static class AddMemberRequest {
+//        private Long userId;
+//        private Integer payoutOrder;
+//
+//        // Getters and Setters
+//        public Long getUserId() { return userId; }
+//        public void setUserId(Long userId) { this.userId = userId; }
+//
+//        public Integer getPayoutOrder() { return payoutOrder; }
+//        public void setPayoutOrder(Integer payoutOrder) { this.payoutOrder = payoutOrder; }
+//    }
 }

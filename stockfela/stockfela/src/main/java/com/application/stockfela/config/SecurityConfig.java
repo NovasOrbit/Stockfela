@@ -4,6 +4,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -26,7 +27,7 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 // Disable CSRF for API testing (you'll enable it later with proper configuration)
-                .csrf(csrf -> csrf.disable())
+                .csrf(AbstractHttpConfigurer::disable)
 
                 // Enable CORS for frontend communication
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -41,6 +42,9 @@ public class SecurityConfig {
 
                         // Allow access to H2 console if you're using it (for development)
                         .requestMatchers("/h2-console/**").permitAll()
+
+                                .requestMatchers("/error").permitAll()
+                                .requestMatchers("/favicon.ico").permitAll()
 
                         // Any other request needs authentication
                         .anyRequest().authenticated()
