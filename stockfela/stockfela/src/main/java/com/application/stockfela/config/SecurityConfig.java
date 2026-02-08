@@ -12,7 +12,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.Arrays;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -23,49 +23,44 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
+    // Single CORS source — no "*", credentials allowed, correct methods incl. OPTIONS
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http
-                // Disable CSRF for API testing (you'll enable it later with proper configuration)
-                .csrf(AbstractHttpConfigurer::disable)
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
 
-                // Enable CORS for frontend communication
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+        // Explicitly list your frontend(s)
+        config.setAllowedOrigins(List.of(
+                "http://localhost:5174"
+                // add prod origin(s) here, e.g. "https://app.stockfela.com"
+        ));
 
-                // Configure authorization rules
-                .authorizeHttpRequests(authz -> authz
-                        // Allow public access to authentication endpoints
-//                        .requestMatchers("/api/auth/**").permitAll()
+        // Or, if you need patterns (e.g., multiple subdomains), use:
+        // config.setAllowedOriginPatterns(List.of("http://localhost:*", "https://*.stockfela.com"));
 
-                        // Allow public access to all API endpoints for now (you'll secure later)
-                        .requestMatchers("/api/**").permitAll()
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setExposedHeaders(List.of("Authorization", "Link", "X-Total-Count"));
+        config.setAllowCredentials(true); // since you likely use auth
 
-                        // Allow access to H2 console if you're using it (for development)
-                        .requestMatchers("/h2-console/**").permitAll()
-
-                                .requestMatchers("/error").permitAll()
-                                .requestMatchers("/favicon.ico").permitAll()
-
-                        // Any other request needs authentication
-                        .anyRequest().authenticated()
-                )
-
-                // Disable frame options for H2 console (development only)
-                .headers(headers -> headers.frameOptions(frame -> frame.disable()));
-
-        return http.build();
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
     }
 
     @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("*")); // Allow all origins for development
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("*"));
-        configuration.setAllowCredentials(false);
+    public SecurityFilterChain filterChain(HttpSecurity http, CorsConfigurationSource corsConfigurationSource) throws Exception {
+        http
+                .csrf(AbstractHttpConfigurer::disable)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource)) // ✅ use the bean
+                .authorizeHttpRequests(authz -> authz
+                        .requestMatchers("/api/**").permitAll()
+                        .requestMatchers("/h2-console/**").permitAll()
+                        .requestMatchers("/error").permitAll()
+                        .requestMatchers("/favicon.ico").permitAll()
+                        .anyRequest().authenticated()
+                )
+                .headers(headers -> headers.frameOptions(frame -> frame.disable()));
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
-        return source;
+        return http.build();
     }
 }

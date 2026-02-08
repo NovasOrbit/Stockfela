@@ -1,9 +1,13 @@
 package com.application.stockfela.controller;
 
 import com.application.stockfela.dto.request.LoginRequest;
+import com.application.stockfela.dto.request.PaymentRequest;
+import com.application.stockfela.dto.request.RegisterRequest;
+import com.application.stockfela.dto.response.RegisterResponse;
 import com.application.stockfela.entity.User;
 import com.application.stockfela.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,35 +23,20 @@ public class AuthController {
     @Autowired
     private UserService userService;
 
+    public AuthController(UserService userService){
+        this.userService = userService;
+    }
+
     /**
      * Register a new user
      * POST http://localhost:8080/api/auth/register
      */
     @PostMapping("/register")
-    public ResponseEntity<?> registerUser(@Valid @RequestBody User user) {
-        try {
-            User savedUser = userService.registerUser(user);
+    public ResponseEntity<RegisterResponse> registerUser(@Valid @RequestBody RegisterRequest registerRequest) {
+        RegisterResponse response = userService.registerUser(registerRequest);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
 
-            // Return user without password
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("message", "User registered successfully");
-            response.put("user", Map.of(
-                    "id", savedUser.getId(),
-                    "username", savedUser.getUsername(),
-                    "email", savedUser.getEmail(),
-                    "fullName", savedUser.getFullName()
-            ));
-
-            return ResponseEntity.ok(response);
-
-        } catch (RuntimeException e) {
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("success", false);
-            errorResponse.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(errorResponse);
-        }
-    }
+   }
 
     /**
      * User login (basic version - we'll add JWT later)
@@ -107,16 +96,4 @@ public class AuthController {
         }
     }
 
-    // Inner class for login request
-//    public static class LoginRequest {
-//        private String username;
-//        private String password;
-//
-//        // Getters and Setters
-//        public String getUsername() { return username; }
-//        public void setUsername(String username) { this.username = username; }
-//
-//        public String getPassword() { return password; }
-//        public void setPassword(String password) { this.password = password; }
-//    }
 }

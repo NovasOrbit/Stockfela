@@ -1,5 +1,6 @@
 package com.application.stockfela.controller;
 
+import com.application.stockfela.dto.request.PaymentRequest;
 import com.application.stockfela.service.PayoutCycleService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -94,16 +95,5 @@ public class PayoutController {
         }
     }
 
-    // REQUEST DTO
-    public static class PaymentRequest {
-        private Long userId;
-        private BigDecimal amount;
 
-        // Getters and Setters
-        public Long getUserId() { return userId; }
-        public void setUserId(Long userId) { this.userId = userId; }
-
-        public BigDecimal getAmount() { return amount; }
-        public void setAmount(BigDecimal amount) { this.amount = amount; }
-    }
 }
