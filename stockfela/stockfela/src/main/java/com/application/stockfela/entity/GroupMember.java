@@ -1,5 +1,6 @@
 package com.application.stockfela.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
@@ -15,11 +16,13 @@ public class GroupMember {
     // Many group members belong to one group
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "group_id", nullable = false)
+    @JsonIgnoreProperties({"members", "createdGroups"}) // Stop the loop here
     private SavingsGroup group;
 
     // Many group members are users
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnoreProperties({"members", "groups"}) // Don't serialize the user's entire group list again
     private User user;
 
     @Column(name = "payout_order", nullable = false)

@@ -1,5 +1,7 @@
 package com.application.stockfela.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import org.hibernate.annotations.CreationTimestamp;
 import java.math.BigDecimal;
@@ -34,14 +36,17 @@ public class SavingsGroup {
     // Many groups can be created by one user
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)
+    @JsonIgnoreProperties({"createdGroups", "members", "password"}) // Prevents User -> Groups -> User loop
     private User createdBy;
 
     // One group can have multiple members
     @OneToMany(mappedBy = "group", cascade = CascadeType.ALL)
+    @JsonIgnoreProperties("group") //Prevents member from pointing back to group
     private List<GroupMember> members;
 
     // One group can have multiple payout cycles
     @OneToMany(mappedBy = "group", cascade = CascadeType.ALL)
+    @JsonIgnoreProperties("group") // Prevents PayoutCycle -> Group -> PayoutCycle loop
     private List<PayoutCycle> payoutCycles;
 
     @CreationTimestamp
