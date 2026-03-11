@@ -8,6 +8,9 @@ import com.application.stockfela.dto.response.RegisterResponse;
 import com.application.stockfela.entity.User;
 import lombok.experimental.UtilityClass;
 
+import java.util.Collections;
+import java.util.stream.Collectors;
+
 @UtilityClass
 public class StockfelaMapper {
 
@@ -26,6 +29,7 @@ public class StockfelaMapper {
                 .username(savedUser.getUsername())
                 .email(savedUser.getEmail())
                 .fullName(savedUser.getUsername())
+                .role(savedUser.getRoles().stream().map(role->role.getName().name()).collect(Collectors.toSet()))
                 .build();
     }
 
