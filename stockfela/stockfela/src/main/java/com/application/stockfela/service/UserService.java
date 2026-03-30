@@ -1,20 +1,33 @@
 package com.application.stockfela.service; // FIXED PACKAGE NAME
 
-import com.application.stockfela.dto.StockfelaMapper;
 import com.application.stockfela.dto.request.RegisterRequest;
-import com.application.stockfela.dto.response.LoginResponse;
 import com.application.stockfela.dto.response.RegisterResponse;
+import com.application.stockfela.entity.Role;
 import com.application.stockfela.entity.User;
+import com.application.stockfela.repository.RoleRepository;
 import com.application.stockfela.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import static com.application.stockfela.dto.StockfelaMapper.mapToRegisterResponse;
 
 @Service
-public class UserService {
+@RequiredArgsConstructor
+
+public class UserService implements UserDetailsService {
 
     @Autowired
     private final UserRepository userRepository;
@@ -22,10 +35,8 @@ public class UserService {
     @Autowired
     private final PasswordEncoder passwordEncoder;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
-        this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
-    }
+
+    private final RoleRepository roleRepository;
 
     /**
      * Register a new user with encrypted password
@@ -50,13 +61,23 @@ public class UserService {
         user.setFullName(registerRequest.getFullName().trim());
         user.setPhoneNumber(registerRequest.getPhoneNumber());
 
+
+        // Assign roles
+        Set<Role> roles = registerRequest.getRoles().stream()
+                .map(Role.RoleName::valueOf) // convert String → Enum
+                .map(roleName -> roleRepository.findByName(roleName)
+                        .orElseThrow(() -> new IllegalStateException("Role not seeded: " + roleName)))
+                .collect(Collectors.toSet());
+
+        user.setRoles(roles);
+
+
+
         //3) Encode password (defensive check, though @Valid already guards this)
         if (registerRequest.getPassword() ==  null || registerRequest.getPassword().isBlank())
         {
             throw  new IllegalArgumentException("Password cannot be null or blank");
         }
-        // Encrypt the password before saving
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
 
         User saved = userRepository.save(user);
 
@@ -90,4 +111,21 @@ public class UserService {
     public java.util.List<User> getAllUsers() {
         return userRepository.findAll();
     }
+
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+        List<SimpleGrantedAuthority> authorities =
+                user.getRoles().stream()
+                        .map(role -> new SimpleGrantedAuthority(role.getName().name()))
+                        .toList();
+
+        return new org.springframework.security.core.userdetails.User(
+                user.getUsername(),
+                user.getPassword(),
+                authorities
+        );
+    }
+
 }

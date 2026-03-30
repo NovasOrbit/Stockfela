@@ -1,19 +1,32 @@
 package com.application.stockfela.controller;
 
+import com.application.stockfela.JWT.JWTUtilities;
 import com.application.stockfela.dto.request.LoginRequest;
 import com.application.stockfela.dto.request.PaymentRequest;
 import com.application.stockfela.dto.request.RegisterRequest;
+import com.application.stockfela.dto.response.LoginResponse;
 import com.application.stockfela.dto.response.RegisterResponse;
-import com.application.stockfela.entity.User;
 import com.application.stockfela.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.provisioning.JdbcUserDetailsManager;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
+
+import javax.sql.DataSource;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -22,6 +35,12 @@ public class AuthController {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private AuthenticationManager authenticationManager;
+
+    @Autowired
+    private JWTUtilities jwtUtilities;
 
     public AuthController(UserService userService){
         this.userService = userService;
@@ -44,25 +63,28 @@ public class AuthController {
      */
     @PostMapping("/login")
     public ResponseEntity<?> loginUser(@RequestBody LoginRequest loginRequest) {
+        Authentication authentication;
         try {
+
             // For now, simple authentication. We'll add JWT later
-            User user = userService.findByUsername(loginRequest.getUsername())
-                    .orElseThrow(() -> new RuntimeException("User not found"));
+//            User user = userService.findByUsername(loginRequest.getUsername())
+//                    .orElseThrow(() -> new RuntimeException("User not found"));
 
             // In real app, we'd use PasswordEncoder to check password
             // For now, we'll just return success
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("message", "Login successful");
-            response.put("user", Map.of(
-                    "id", user.getId(),
-                    "username", user.getUsername(),
-                    "email", user.getEmail(),
-                    "fullName", user.getFullName()
-            ));
-
-            return ResponseEntity.ok(response);
+//
+//            Map<String, Object> response = new HashMap<>();
+//            response.put("success", true);
+//            response.put("message", "Login successful");
+//            response.put("user", Map.of(
+//                    "id", user.getId(),
+//                    "username", user.getUsername(),
+//                    "email", user.getEmail(),
+//                    "fullName", user.getFullName()
+            authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(loginRequest.getUsername(),loginRequest.getPassword()));
+//            ));
+//
+//            return ResponseEntity.ok(response);
 
         } catch (RuntimeException e) {
             Map<String, Object> errorResponse = new HashMap<>();
@@ -70,6 +92,18 @@ public class AuthController {
             errorResponse.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(errorResponse);
         }
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        UserDetails userDetails =(UserDetails) authentication.getPrincipal();
+
+        String jwtToken = jwtUtilities.generateTokenFromUsername(userDetails);
+//we dont have roles yet
+        List<String> roles = userDetails.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority).collect(Collectors.toList());
+
+        LoginResponse response = new LoginResponse(jwtToken,userDetails.getUsername(),roles);
+
+        return ResponseEntity.ok(response);
     }
 
     /**

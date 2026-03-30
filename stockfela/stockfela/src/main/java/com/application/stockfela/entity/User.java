@@ -6,7 +6,9 @@ import jakarta.validation.constraints.NotBlank;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Entity
 @Table(name = "users")
@@ -37,6 +39,7 @@ public class User {
     @Column(name = "phone_number", length = 20)
     private String phoneNumber;
 
+
     // One user can be in multiple groups
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     private List<GroupMember> groupMemberships;
@@ -53,6 +56,18 @@ public class User {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @Column(name="enabled")
+    private boolean isActive=true;
+
+
+
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(name = "user_roles",
+            joinColumns = @JoinColumn(name="user_id"),
+            inverseJoinColumns = @JoinColumn(name="role_id"))
+    private Set<Role> roles = new HashSet<>();
+
+
     // Constructors
     public User() {}
 
@@ -61,11 +76,20 @@ public class User {
         this.email = email;
         this.password = password;
         this.fullName = fullName;
+
     }
 
     // Getters and Setters (VERY IMPORTANT in JPA)
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+
+    public Set<Role> getRoles() {
+        return roles;
+    }
+
+    public void setRoles(Set<Role> roles) {
+        this.roles = roles;
+    }
 
     public String getUsername() { return username; }
     public void setUsername(String username) { this.username = username; }
@@ -93,4 +117,12 @@ public class User {
 
     public List<SavingsGroup> getCreatedGroups() { return createdGroups; }
     public void setCreatedGroups(List<SavingsGroup> createdGroups) { this.createdGroups = createdGroups; }
+
+    public boolean isActive() {
+        return isActive;
+    }
+
+    public void setActive(boolean active) {
+        isActive = active;
+    }
 }
