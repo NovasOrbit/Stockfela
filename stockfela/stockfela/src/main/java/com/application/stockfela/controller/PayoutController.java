@@ -1,33 +1,52 @@
 package com.application.stockfela.controller;
 
 import com.application.stockfela.dto.request.PaymentRequest;
+import com.application.stockfela.dto.response.PaymentProgressResponse;
 import com.application.stockfela.service.PayoutCycleService;
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * REST controller for payout-cycle and contribution operations.
+ *
+ * <p>All endpoints require an authenticated user (JWT). They allow
+ * members to record their payments and query collection progress
+ * for a given payout cycle.
+ */
 @RestController
 @RequestMapping("/api/payouts")
-@CrossOrigin(origins = "*")
+@RequiredArgsConstructor
 public class PayoutController {
 
-    @Autowired
-    private PayoutCycleService payoutCycleService;
+    /** Service handling payout-cycle lifecycle and contribution recording. */
+    private final PayoutCycleService payoutCycleService;
+
+    // ── Write ────────────────────────────────────────────────────────────────
 
     /**
-     * RECORD A MEMBER'S PAYMENT
-     * POST http://localhost:8080/api/payouts/1/pay
-     * {
-     *   "userId": 2,
-     *   "amount": 1000.00
-     * }
+     * Record a member's payment for a payout cycle.
+     *
+     * <pre>POST /api/payouts/{payoutCycleId}/pay</pre>
+     *
+     * Example request body:
+     * <pre>{@code { "userId": 2, "amount": 1000.00 }}</pre>
+     *
+     * <p>After recording, if all members have paid the cycle status is
+     * automatically changed to {@code COMPLETED}.
+     *
+     * @param payoutCycleId the active payout cycle's ID
+     * @param request       user ID and payment amount
+     * @return the updated contribution record, or 400 on error
      */
     @PostMapping("/{payoutCycleId}/pay")
-    public ResponseEntity<?> recordPayment(@PathVariable Long payoutCycleId, @RequestBody PaymentRequest request) {
+    public ResponseEntity<?> recordPayment(
+            @PathVariable Long payoutCycleId,
+            @Valid @RequestBody PaymentRequest request) {
         try {
             var contribution = payoutCycleService.recordPayment(
                     payoutCycleId, request.getUserId(), request.getAmount());
@@ -47,14 +66,21 @@ public class PayoutController {
         }
     }
 
+    // ── Read ─────────────────────────────────────────────────────────────────
+
     /**
-     * GET PAYMENT PROGRESS FOR A PAYOUT CYCLE
-     * GET http://localhost:8080/api/payouts/1/progress
+     * Get payment collection progress for a payout cycle.
+     *
+     * <pre>GET /api/payouts/{payoutCycleId}/progress</pre>
+     *
+     * @param payoutCycleId the payout cycle's ID
+     * @return member count, paid count, amounts expected/collected, and percentage
      */
     @GetMapping("/{payoutCycleId}/progress")
     public ResponseEntity<?> getPaymentProgress(@PathVariable Long payoutCycleId) {
         try {
-            var progress = payoutCycleService.getPaymentProgress(payoutCycleId);
+            PaymentProgressResponse progress =
+                    payoutCycleService.getPaymentProgress(payoutCycleId);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -72,8 +98,12 @@ public class PayoutController {
     }
 
     /**
-     * GET ALL CONTRIBUTIONS FOR A PAYOUT CYCLE
-     * GET http://localhost:8080/api/payouts/1/contributions
+     * Get all contributions recorded for a payout cycle.
+     *
+     * <pre>GET /api/payouts/{payoutCycleId}/contributions</pre>
+     *
+     * @param payoutCycleId the payout cycle's ID
+     * @return list of all contributions with their statuses
      */
     @GetMapping("/{payoutCycleId}/contributions")
     public ResponseEntity<?> getCycleContributions(@PathVariable Long payoutCycleId) {
@@ -94,6 +124,4 @@ public class PayoutController {
             return ResponseEntity.badRequest().body(errorResponse);
         }
     }
-
-
 }

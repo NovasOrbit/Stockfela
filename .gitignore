@@ -1,0 +1,85 @@
+# ============================================================
+# Stockfela – .gitignore
+# Covers: Java/Maven, Spring Boot, IntelliJ IDEA, VS Code,
+#         environment files, OS noise, Docker artefacts.
+# ============================================================
+
+# ─── Secrets & environment ───────────────────────────────────
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.jks
+secrets/
+
+# ─── Maven build output ──────────────────────────────────────
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# ─── IntelliJ IDEA ───────────────────────────────────────────
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+# ─── VS Code ─────────────────────────────────────────────────
+.vscode/
+*.code-workspace
+
+# ─── Eclipse ─────────────────────────────────────────────────
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+# ─── NetBeans ────────────────────────────────────────────────
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# ─── Spring Boot / application config with secrets ───────────
+# Keep application.yml / application.properties in VCS
+# but ignore any profile-specific files that may contain secrets
+application-prod.yml
+application-prod.properties
+application-local.yml
+application-local.properties
+
+# ─── Logs ────────────────────────────────────────────────────
+*.log
+logs/
+spring.log
+
+# ─── H2 embedded database files (if file-based) ──────────────
+*.db
+*.mv.db
+*.trace.db
+
+# ─── Docker ──────────────────────────────────────────────────
+docker-compose.override.yml
+
+# ─── OS noise ────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── Package managers ────────────────────────────────────────
+node_modules/
+npm-debug.log*
+
+# ─── Test reports ────────────────────────────────────────────
+test-results/
+surefire-reports/
