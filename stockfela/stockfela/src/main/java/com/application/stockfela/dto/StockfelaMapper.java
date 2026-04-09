@@ -28,7 +28,7 @@ public class StockfelaMapper {
                 .id(savedUser.getId())
                 .username(savedUser.getUsername())
                 .email(savedUser.getEmail())
-                .fullName(savedUser.getUsername())
+                .fullName(savedUser.getFullName())
                 .role(savedUser.getRoles().stream().map(role->role.getName().name()).collect(Collectors.toSet()))
                 .build();
     }
