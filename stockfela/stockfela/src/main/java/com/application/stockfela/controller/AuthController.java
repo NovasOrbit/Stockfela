@@ -2,12 +2,12 @@ package com.application.stockfela.controller;
 
 import com.application.stockfela.JWT.JWTUtilities;
 import com.application.stockfela.dto.request.LoginRequest;
-import com.application.stockfela.dto.request.PaymentRequest;
 import com.application.stockfela.dto.request.RegisterRequest;
 import com.application.stockfela.dto.response.LoginResponse;
 import com.application.stockfela.dto.response.RegisterResponse;
 import com.application.stockfela.service.UserService;
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -18,68 +18,78 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
-import jakarta.validation.Valid;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * REST controller handling user authentication: registration and login.
+ *
+ * <p>Endpoints under {@code /api/auth} are explicitly whitelisted in
+ * {@link com.application.stockfela.config.SecurityConfig} so they can be
+ * accessed without a JWT token.
+ *
+ * <p>Constructor injection (via {@code @RequiredArgsConstructor}) is used
+ * instead of field injection for testability and to make dependencies explicit.
+ */
 @RestController
 @RequestMapping("/api/auth")
+@RequiredArgsConstructor
 public class AuthController {
 
-    @Autowired
-    private UserService userService;
+    /** Service layer for user registration, lookup, and Spring UserDetails. */
+    private final UserService userService;
 
-    @Autowired
-    private AuthenticationManager authenticationManager;
+    /** Spring Security authentication manager – validates credentials. */
+    private final AuthenticationManager authenticationManager;
 
-    @Autowired
-    private JWTUtilities jwtUtilities;
+    /** Utility for generating and validating JWT tokens. */
+    private final JWTUtilities jwtUtilities;
 
-    public AuthController(UserService userService){
-        this.userService = userService;
+    // ── Endpoints ───────────────────────────────────────────────────────────
+
+    /**
+     * Register a new user account.
+     *
+     * <pre>POST /api/auth/register</pre>
+     *
+     * @param registerRequest validated registration payload
+     * @return 201 Created with user details, or 400/409 on validation failure
+     */
+    @PostMapping("/register")
+    public ResponseEntity<RegisterResponse> registerUser(
+            @Valid @RequestBody RegisterRequest registerRequest) {
+        RegisterResponse response = userService.registerUser(registerRequest);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     /**
-     * Register a new user
-     * POST http://localhost:8080/api/auth/register
-     */
-    @PostMapping("/register")
-    public ResponseEntity<RegisterResponse> registerUser(@Valid @RequestBody RegisterRequest registerRequest) {
-        RegisterResponse response = userService.registerUser(registerRequest);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
-
-   }
-
-    /**
-     * User login (basic version - we'll add JWT later)
-     * POST http://localhost:8080/api/auth/login
+     * Authenticate an existing user and return a JWT access token.
+     *
+     * <pre>POST /api/auth/login</pre>
+     *
+     * @param loginRequest validated login credentials
+     * @return 200 OK with JWT token and role list, or 400 on bad credentials
      */
     @PostMapping("/login")
-    public ResponseEntity<?> loginUser(@RequestBody LoginRequest loginRequest) {
-        Authentication authentication;
+    public ResponseEntity<?> loginUser(@Valid @RequestBody LoginRequest loginRequest) {
         try {
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            loginRequest.getUsername(),
+                            loginRequest.getPassword()));
 
-            // For now, simple authentication. We'll add JWT later
-//            User user = userService.findByUsername(loginRequest.getUsername())
-//                    .orElseThrow(() -> new RuntimeException("User not found"));
+            SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            // In real app, we'd use PasswordEncoder to check password
-            // For now, we'll just return success
-//
-//            Map<String, Object> response = new HashMap<>();
-//            response.put("success", true);
-//            response.put("message", "Login successful");
-//            response.put("user", Map.of(
-//                    "id", user.getId(),
-//                    "username", user.getUsername(),
-//                    "email", user.getEmail(),
-//                    "fullName", user.getFullName()
-            authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(loginRequest.getUsername(),loginRequest.getPassword()));
-//            ));
-//
-//            return ResponseEntity.ok(response);
+            UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+            String jwtToken = jwtUtilities.generateTokenFromUsername(userDetails);
+
+            List<String> roles = userDetails.getAuthorities().stream()
+                    .map(GrantedAuthority::getAuthority)
+                    .collect(Collectors.toList());
+
+            return ResponseEntity.ok(new LoginResponse(jwtToken, userDetails.getUsername(), roles));
 
         } catch (RuntimeException e) {
             Map<String, Object> errorResponse = new HashMap<>();
@@ -87,42 +97,5 @@ public class AuthController {
             errorResponse.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(errorResponse);
         }
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-
-        UserDetails userDetails =(UserDetails) authentication.getPrincipal();
-
-        String jwtToken = jwtUtilities.generateTokenFromUsername(userDetails);
-//we dont have roles yet
-        List<String> roles = userDetails.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority).collect(Collectors.toList());
-
-        LoginResponse response = new LoginResponse(jwtToken,userDetails.getUsername(),roles);
-
-        return ResponseEntity.ok(response);
     }
-
-    /**
-     * Get all users (for testing)
-     * GET http://localhost:8080/api/auth/users
-     */
-    @GetMapping("/users")
-    public ResponseEntity<?> getAllUsers() {
-        try {
-            var users = userService.getAllUsers();
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("users", users);
-            response.put("count", users.size());
-
-            return ResponseEntity.ok(response);
-
-        } catch (Exception e) {
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("success", false);
-            errorResponse.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(errorResponse);
-        }
-    }
-
 }
