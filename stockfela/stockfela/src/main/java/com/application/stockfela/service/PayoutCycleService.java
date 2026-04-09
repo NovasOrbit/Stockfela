@@ -1,5 +1,6 @@
 package com.application.stockfela.service;
 
+import com.application.stockfela.dto.response.PaymentProgressResponse;
 import com.application.stockfela.entity.Contribution;
 import com.application.stockfela.entity.GroupMember;
 import com.application.stockfela.entity.PayoutCycle;
@@ -8,174 +9,221 @@ import com.application.stockfela.repository.ContributionRepository;
 import com.application.stockfela.repository.GroupMemberRepository;
 import com.application.stockfela.repository.PayoutCycleRepository;
 import jakarta.transaction.Transactional;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Service layer for payout-cycle and contribution operations.
+ *
+ * <p>A payout cycle represents one month in a savings group where:
+ * <ol>
+ *   <li>Every member contributes their fixed monthly amount.</li>
+ *   <li>The designated recipient receives the pooled total.</li>
+ * </ol>
+ *
+ * <p>This service handles creating cycles, recording individual payments,
+ * and automatically completing a cycle once all contributions are paid.
+ */
 @Service
 @Transactional
+@RequiredArgsConstructor
 public class PayoutCycleService {
 
-    @Autowired
-    private PayoutCycleRepository payoutCycleRepository;
+    /** Repository for {@link PayoutCycle} persistence. */
+    private final PayoutCycleRepository payoutCycleRepository;
 
-    @Autowired
-    private ContributionRepository contributionRepository;
+    /** Repository for {@link Contribution} persistence. */
+    private final ContributionRepository contributionRepository;
 
-    @Autowired
-    private GroupMemberRepository groupMemberRepository;
+    /** Repository for looking up group members when creating contributions. */
+    private final GroupMemberRepository groupMemberRepository;
 
-    //Save a payout cycle (create new or update existing)
+    // ── Payout cycle CRUD ────────────────────────────────────────────────────
+
+    /**
+     * Persist a new or updated {@link PayoutCycle}.
+     *
+     * @param payoutCycle the cycle to save
+     * @return the saved entity (ID populated after first save)
+     */
     public PayoutCycle savePayoutCycle(PayoutCycle payoutCycle) {
         return payoutCycleRepository.save(payoutCycle);
     }
 
-    //Get payment cycle by ID
+    /**
+     * Look up a payout cycle by its primary key.
+     *
+     * @param id the payout cycle ID
+     * @return an {@link Optional} with the cycle if found
+     */
     public Optional<PayoutCycle> findById(Long id) {
         return payoutCycleRepository.findById(id);
     }
 
-    //Get payment cycle for a group
+    /**
+     * Get all payout cycles for a group, most recent first.
+     *
+     * @param groupId the savings group ID
+     * @return list of cycles ordered by cycle number descending
+     */
     public List<PayoutCycle> getPayoutCycleByGroup(Long groupId) {
         return payoutCycleRepository.findByGroupIdOrderByCycleNumberDesc(groupId);
     }
 
-    //Get current active payout cycle for a group
+    /**
+     * Get the current (latest) payout cycle for a group.
+     *
+     * @param groupId the savings group ID
+     * @return an {@link Optional} with the most recent cycle, or empty
+     */
     public Optional<PayoutCycle> getCurrentPayoutCycle(Long groupId) {
         return payoutCycleRepository.findCurrentPayoutCycle(groupId);
     }
 
-    //Create contributions for all members when starting a new payout cycle
-    //This automatically creates pending contributions for each member
+    // ── Contribution management ──────────────────────────────────────────────
+
+    /**
+     * Create a {@link Contribution#ContributionStatus#PENDING PENDING}
+     * contribution record for every active member of the group when a new
+     * payout cycle starts.
+     *
+     * <p>Each contribution is for the group's fixed
+     * {@link SavingsGroup#getMonthlyContribution() monthlyContribution} amount.
+     *
+     * @param payoutCycle the newly created payout cycle
+     */
     public void createContributionForPayoutCycle(PayoutCycle payoutCycle) {
         SavingsGroup group = payoutCycle.getGroup();
         BigDecimal contributionAmount = group.getMonthlyContribution();
 
-        //Get all active members in the group
         List<GroupMember> members = groupMemberRepository.findByGroup(group);
 
         for (GroupMember member : members) {
-            Contribution contribution = new Contribution();
-            contribution.setGroup(group);
-            contribution.setUser(member.getUser());
-            contribution.setPayoutCycle(payoutCycle);
-            contribution.setAmount(contributionAmount);
+            Contribution contribution = new Contribution(
+                    group, member.getUser(), payoutCycle, contributionAmount);
             contribution.setStatus(Contribution.ContributionStatus.PENDING);
-
             contributionRepository.save(contribution);
         }
     }
 
-    //Record a member's payment for the current payment cycle
+    /**
+     * Record that a member has made their payment for a payout cycle.
+     *
+     * <p>Marks the contribution as {@link Contribution.ContributionStatus#PAID}
+     * and then checks whether all contributions for the cycle are now paid;
+     * if so, the cycle is automatically marked {@link PayoutCycle.PayoutStatus#COMPLETED}.
+     *
+     * @param payoutCycleId the ID of the active payout cycle
+     * @param userId        the ID of the user making the payment
+     * @param amount        the amount paid (recorded for auditing)
+     * @return the updated {@link Contribution} entity
+     * @throws RuntimeException if no pending contribution is found for this user/cycle
+     */
     public Contribution recordPayment(Long payoutCycleId, Long userId, BigDecimal amount) {
-        //find the contribution for this user in this payout cycle
         Contribution contribution = contributionRepository
                 .findByPayoutCycleIdAndUserId(payoutCycleId, userId)
-                .orElseThrow(() -> new RuntimeException("Contribution not found"));
+                .orElseThrow(() -> new RuntimeException(
+                        "Contribution not found for cycle " + payoutCycleId
+                        + " and user " + userId));
 
-        //Update contribution status
         contribution.setStatus(Contribution.ContributionStatus.PAID);
+        contribution.setAmount(amount);
         contribution.setPaymentDate(LocalDate.now());
-        contribution.setPaidAt(java.time.LocalDateTime.now());
+        contribution.setPaidAt(LocalDateTime.now());
 
-        Contribution savedContribution = contributionRepository.save(contribution);
-
-        // Check if all contributions are now paid
+        Contribution saved = contributionRepository.save(contribution);
         checkAndCompletePayoutCycle(payoutCycleId);
-
-        return savedContribution;
+        return saved;
     }
 
-    //Check if all contributions for a payout cycle are paid and marked cycle as completed
-    private void checkAndCompletePayoutCycle(Long payoutCycleId) {
-        PayoutCycle payoutCycle = payoutCycleRepository.findById(payoutCycleId)
-                .orElseThrow(() -> new RuntimeException("Payout cycle not found"));
-
-        //Count pending contributions
-        long pendingCount = contributionRepository.countByPayoutCycleAndStatus(
-                payoutCycle, Contribution.ContributionStatus.PENDING);
-
-        if (pendingCount == 0) {
-            //All contributions are paid, mark payout cycle as completed
-            payoutCycle.setStatus(PayoutCycle.PayoutStatus.COMPLETED);
-            payoutCycleRepository.save(payoutCycle);
-        }
-    }
-
-    //Get all contributions for a payout cycle
+    /**
+     * Retrieve all contributions recorded for a given payout cycle.
+     *
+     * @param payoutCycleId the cycle's ID
+     * @return list of all contributions (paid and pending)
+     */
     public List<Contribution> getContributionsForPayoutCycle(Long payoutCycleId) {
         return contributionRepository.findByPayoutCycleId(payoutCycleId);
     }
 
-    //Get a user's contributions for a specific payout cycle
+    /**
+     * Retrieve a specific user's contribution for a given payout cycle.
+     *
+     * @param payoutCycleId the cycle's ID
+     * @param userId        the user's ID
+     * @return an {@link Optional} with the contribution if it exists
+     */
     public Optional<Contribution> getUserContributionForCycle(Long payoutCycleId, Long userId) {
         return contributionRepository.findByPayoutCycleIdAndUserId(payoutCycleId, userId);
     }
 
-    //Calculate total amount collected for a payout cycle
+    // ── Progress reporting ───────────────────────────────────────────────────
+
+    /**
+     * Calculate total amount collected (sum of all PAID contributions)
+     * for a payout cycle.
+     *
+     * @param payoutCycleId the cycle's ID
+     * @return total collected; {@link BigDecimal#ZERO} if nothing paid yet
+     */
     public BigDecimal getTotalCollectedAmount(Long payoutCycleId) {
-        List<Contribution> paidContributions = contributionRepository
-                .findByPayoutCycleIdAndStatus(payoutCycleId, Contribution.ContributionStatus.PAID);
-        return paidContributions.stream()
+        return contributionRepository
+                .findByPayoutCycleIdAndStatus(payoutCycleId, Contribution.ContributionStatus.PAID)
+                .stream()
                 .map(Contribution::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    // Get payment progress for payout cycle
-    public PaymentProgress getPaymentProgress(Long payoutCycleId) {
+    /**
+     * Build a {@link PaymentProgressResponse} summarising how many members
+     * have paid and how much has been collected for a given cycle.
+     *
+     * @param payoutCycleId the cycle's ID
+     * @return a progress snapshot DTO
+     * @throws RuntimeException if the payout cycle does not exist
+     */
+    public PaymentProgressResponse getPaymentProgress(Long payoutCycleId) {
         PayoutCycle payoutCycle = payoutCycleRepository.findById(payoutCycleId)
-                .orElseThrow(() -> new RuntimeException("Payout cycle not found"));
+                .orElseThrow(() -> new RuntimeException(
+                        "Payout cycle not found with id: " + payoutCycleId));
 
-        List<Contribution> allContributions = contributionRepository.findByPayoutCycleId(payoutCycleId);
-        long totalMembers = allContributions.size();
-        long paidMembers = allContributions.stream()
+        List<Contribution> all = contributionRepository.findByPayoutCycleId(payoutCycleId);
+        long paidMembers = all.stream()
                 .filter(c -> c.getStatus() == Contribution.ContributionStatus.PAID)
                 .count();
 
-        BigDecimal totalExpected = payoutCycle.getTotalAmount();
-        BigDecimal totalCollected = getTotalCollectedAmount(payoutCycleId);
-
-        return new PaymentProgress(totalMembers, paidMembers, totalExpected, totalCollected);
+        return new PaymentProgressResponse(
+                all.size(),
+                paidMembers,
+                payoutCycle.getTotalAmount(),
+                getTotalCollectedAmount(payoutCycleId));
     }
 
+    // ── Private helpers ──────────────────────────────────────────────────────
+
     /**
-     * DTO for payment progress information
+     * Check whether all contributions for a cycle have been paid and, if so,
+     * advance the cycle status to {@link PayoutCycle.PayoutStatus#COMPLETED}.
+     *
+     * @param payoutCycleId the cycle to check
      */
-    public static class PaymentProgress {
-        private final long totalMembers;
-        private final long paidMembers;
-        private final BigDecimal totalExpected;
-        private final BigDecimal totalCollected;
+    private void checkAndCompletePayoutCycle(Long payoutCycleId) {
+        PayoutCycle payoutCycle = payoutCycleRepository.findById(payoutCycleId)
+                .orElseThrow(() -> new RuntimeException(
+                        "Payout cycle not found with id: " + payoutCycleId));
 
-        public PaymentProgress(long totalMembers, long paidMembers,
-                               BigDecimal totalExpected, BigDecimal totalCollected) {
-            this.totalMembers = totalMembers;
-            this.paidMembers = paidMembers;
-            this.totalExpected = totalExpected;
-            this.totalCollected = totalCollected;
-        }
+        long pendingCount = contributionRepository.countByPayoutCycleAndStatus(
+                payoutCycle, Contribution.ContributionStatus.PENDING);
 
-        // Getters
-        public long getTotalMembers() { return totalMembers; }
-        public long getPaidMembers() { return paidMembers; }
-        public BigDecimal getTotalExpected() { return totalExpected; }
-        public BigDecimal getTotalCollected() { return totalCollected; }
-
-        public double getPaymentPercentage() {
-            if (totalMembers == 0) return 0.0;
-            return (double) paidMembers / totalMembers * 100.0;
+        if (pendingCount == 0) {
+            payoutCycle.setStatus(PayoutCycle.PayoutStatus.COMPLETED);
+            payoutCycleRepository.save(payoutCycle);
         }
     }
 }
-
-
-
-
-
-
-
-
