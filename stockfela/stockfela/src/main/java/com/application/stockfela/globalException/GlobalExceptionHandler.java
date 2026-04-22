@@ -1,5 +1,7 @@
 package com.application.stockfela.globalException;
 
+import com.application.stockfela.CustomException.ResourceConflictException;
+import com.application.stockfela.CustomException.ResourceNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -77,6 +79,7 @@ public class GlobalExceptionHandler {
                 ex.getMessage(), request);
     }
 
+
     /**
      * Handles bad login credentials from Spring Security.
      *
@@ -110,7 +113,7 @@ public class GlobalExceptionHandler {
                 "You do not have permission to perform this action", request);
     }
 
-    // ── 404 Not Found ────────────────────────────────────────────────────────
+    // ── 404 Not Found ───────────────────────────────────────────────────────
 
     /**
      * Handles business-logic "not found" cases (e.g. group not found, user not found).
@@ -126,34 +129,51 @@ public class GlobalExceptionHandler {
      * @return 404 response when the message hints at a "not found" scenario,
      *         or 400 for other runtime errors
      */
-    @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<Map<String, Object>> handleRuntimeException(
-            RuntimeException ex, WebRequest request) {
+//    @ExceptionHandler(RuntimeException.class)
+//    public ResponseEntity<Map<String, Object>> handleRuntimeException(
+//            RuntimeException ex, WebRequest request) {
+//
+//        String message = ex.getMessage();
+//        boolean isNotFound = message != null && (
+//                message.toLowerCase().contains("not found") ||
+//                        message.toLowerCase().contains("does not exist"));
+//
+//        if (isNotFound) {
+//            logger.warn("Resource not found: {}", message);
+//            return buildErrorResponse(HttpStatus.NOT_FOUND, "Not Found", message, request);
+//        }
+//
+//        boolean isConflict = message != null && (
+//                message.toLowerCase().contains("already exists") ||
+//                message.toLowerCase().contains("already a member") ||
+//                message.toLowerCase().contains("duplicate"));
+//
+//        if (isConflict) {
+//            logger.warn("Conflict: {}", message);
+//            return buildErrorResponse(HttpStatus.CONFLICT, "Conflict", message, request);
+//        }
+//
+//        logger.error("Unhandled runtime exception", ex);
+//        return buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR,
+//                "Internal Server Error", "An unexpected error occurred", request);
+//    }
 
+
+    @ExceptionHandler(ResourceConflictException.class)
+    public ResponseEntity<Map<String,Object>> ResourceConflict(Exception ex, WebRequest request){
         String message = ex.getMessage();
-        boolean isNotFound = message != null && (
-                message.toLowerCase().contains("not found") ||
-                message.toLowerCase().contains("does not exist"));
-
-        if (isNotFound) {
-            logger.warn("Resource not found: {}", message);
-            return buildErrorResponse(HttpStatus.NOT_FOUND, "Not Found", message, request);
-        }
-
-        boolean isConflict = message != null && (
-                message.toLowerCase().contains("already exists") ||
-                message.toLowerCase().contains("already a member") ||
-                message.toLowerCase().contains("duplicate"));
-
-        if (isConflict) {
-            logger.warn("Conflict: {}", message);
-            return buildErrorResponse(HttpStatus.CONFLICT, "Conflict", message, request);
-        }
-
-        logger.error("Unhandled runtime exception", ex);
-        return buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR,
-                "Internal Server Error", "An unexpected error occurred", request);
+        logger.warn("Resource Conflict",ex.getMessage());
+        return buildErrorResponse(HttpStatus.CONFLICT,"Conflict",message,request);
     }
+
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<Map<String,Object>> notFound(Exception ex, WebRequest request){
+        String message = ex.getMessage();
+        logger.warn("Not Found",ex.getMessage());
+        return buildErrorResponse(HttpStatus.NOT_FOUND,"Not Found",message,request);
+    }
+
 
     // ── Fallback ─────────────────────────────────────────────────────────────
 

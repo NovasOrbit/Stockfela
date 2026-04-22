@@ -1,5 +1,6 @@
 package com.application.stockfela.service;
 
+import com.application.stockfela.CustomException.ResourceNotFoundException;
 import com.application.stockfela.dto.response.PaymentProgressResponse;
 import com.application.stockfela.entity.Contribution;
 import com.application.stockfela.entity.GroupMember;
@@ -128,7 +129,7 @@ public class PayoutCycleService {
     public Contribution recordPayment(Long payoutCycleId, Long userId, BigDecimal amount) {
         Contribution contribution = contributionRepository
                 .findByPayoutCycleIdAndUserId(payoutCycleId, userId)
-                .orElseThrow(() -> new RuntimeException(
+                .orElseThrow(() -> new ResourceNotFoundException(
                         "Contribution not found for cycle " + payoutCycleId
                         + " and user " + userId));
 
