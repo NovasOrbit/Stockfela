@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.util.Date;
+import java.util.List;
 
 /**
  * Utility class for JSON Web Token (JWT) operations.
@@ -74,16 +75,17 @@ public class JWTUtilities {
     /**
      * Generates a signed JWT for the given user.
      *
-     * <p>The token encodes the username as the subject claim and is signed
+     * <p>The token encodes the username as the subject claim, roles as claim and is signed
      * with HS256. Expiry is set to {@code now + jwtExpirationMs}.
      *
      * @param userDetails the authenticated user (username is used as subject)
      * @return a compact, URL-safe JWT string
      */
-    public String generateTokenFromUsername(UserDetails userDetails) {
+    public String generateTokenFromUsername(UserDetails userDetails, List<String> roles) {
         return Jwts.builder()
                 .setSubject(userDetails.getUsername())
                 .setIssuedAt(new Date())
+                .claim("Role",roles)
                 .setExpiration(new Date(System.currentTimeMillis() + jwtExpirationMs))
                 .signWith(signingKey())
                 .compact();
@@ -144,4 +146,5 @@ public class JWTUtilities {
         byte[] keyBytes = Decoders.BASE64.decode(jwtSecret);
         return Keys.hmacShaKeyFor(keyBytes);
     }
+
 }
